@@ -172,11 +172,15 @@ Accesso negato al device. Opzioni disponibili:
     def _setup_signal_handler(self):
         """Setup graceful interrupt handling"""
         def handler(signum, frame):
+            if self._interrupted:
+                # Second CTRL+C: force exit
+                print("\n\n[!] Forced exit! Cleaning up...")
+                self._emergency_cleanup()
+                sys.exit(1)
+
             self._interrupted = True
-            print("\n\n[!] Interrupt received! Cleaning up...")
-            self._emergency_cleanup()
-            sys.exit(1)
-        
+            print("\n\n[!] Interrupt received - will stop test and restore data...")
+
         self._original_sigint = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, handler)
     
@@ -716,6 +720,11 @@ Accesso negato al device. Opzioni disponibili:
         print()  # New line for progress bar
         
         for idx, sector_num in enumerate(self.test_sectors):
+            # Check for interrupt
+            if self._interrupted:
+                print("\n[!] Test interrupted by user")
+                break
+
             # Update progress bar every sector
             test_type = self.sector_metadata[sector_num]['test_type']
             extra = f"sector {sector_num} ({test_type[0].upper()})"
